@@ -1,21 +1,34 @@
-// const ADT = require('@rimiti/object-hl7-parser/src/config/default-hl7/adt');
-// const SIU = require('@rimiti/object-hl7-parser/src/config/default-hl7/siu');
-// const ORM = require('@rimiti/object-hl7-parser/src/config/default-hl7/orm');
-// import * as ADT from '@rimiti/object-hl7-parser/src/config/default-hl7/adt/';
-// import * as SIU from '@rimiti/object-hl7-parser/src/config/default-hl7/siu/';
-// import * as ORM from '@rimiti/object-hl7-parser/src/config/default-hl7/orm/';
+const { send, json } = require('micro');
+const { router, get, post } = require('microrouter');
+const fs = require('fs');
+const path = require('path');
 
-// export default class DefaultEncoder {
+const modulo = async (req, res) => {
+    const hl7Module = req.params.modulo;
+    const hl7Component = req.params.componente;
+    send(res, 200, await Promise.resolve(`Módulo ${hl7Module.toUpperCase()}, componente ${hl7Component}\n`))
+};
 
-//     getAdtEncoder(message) {
-//         return new ADT(message);
-//     }
+const notFound = async (req, res) => send(res, 404, 'No existe la ruta');
+const hl7Data = async (req, res) => {
 
-//     getSiuEncoder(message) {
-//         return new SIU(message);
-//     }
+    const hl7Module = req.params.modulo;
+    const hl7Component = req.params.componente;
+    const body = await json(req);
 
-//     getSiuEncoder(message) {
-//         return new ORM(message);
-//     }
-// }
+    if (hl7Module && hl7Component) {
+        if (fs.existsSync(path.join(__dirname, `${hl7Module}${hl7Component}.js`))) {
+            const { parser, config } = require(`./${hl7Module}${hl7Component}`);
+            const parseado = parser[`get${hl7Module.toUpperCase()}${hl7Component}`](body, config);
+            send(res, 200, parseado.getMessage());
+        } else {
+            send(res, 200, `No existe el archivo "${hl7Module}${hl7Component}.js"`);
+        }
+    }
+}
+
+module.exports = router(
+    // get('/api/:modulo/:componente', modulo),
+    post('/api/:modulo/:componente', hl7Data),
+    get('/*', notFound)
+);
